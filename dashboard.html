@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BFG P&L Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-bottom: 1px solid #334155; padding: 24px 32px; }
+  .header h1 { font-size: 22px; font-weight: 600; color: #f8fafc; }
+  .header p { font-size: 13px; color: #94a3b8; margin-top: 4px; }
+  .summary-row { display: flex; gap: 16px; padding: 24px 32px; flex-wrap: wrap; }
+  .summary-card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 18px 22px; flex: 1; min-width: 180px; }
+  .summary-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 6px; }
+  .summary-card .value { font-size: 22px; font-weight: 700; }
+  .summary-card .subtext { font-size: 11px; color: #64748b; margin-top: 4px; }
+  .green { color: #4ade80; }
+  .red { color: #f87171; }
+  .blue { color: #60a5fa; }
+  .amber { color: #fbbf24; }
+  .tabs { display: flex; gap: 0; padding: 0 32px; border-bottom: 1px solid #334155; }
+  .tab { padding: 12px 20px; font-size: 13px; font-weight: 500; color: #94a3b8; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .tab:hover { color: #e2e8f0; }
+  .tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+  .content { padding: 24px 32px; }
+  .category-grid { display: flex; flex-direction: column; gap: 8px; }
+  .category-row { background: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; transition: all 0.15s; }
+  .category-row:hover { border-color: #475569; }
+  .category-header { display: grid; grid-template-columns: 2fr repeat(3, 1fr) 80px; align-items: center; padding: 14px 20px; cursor: pointer; user-select: none; }
+  .category-header:hover { background: #1e3a5f22; }
+  .cat-name { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .cat-name .arrow { font-size: 10px; color: #64748b; transition: transform 0.2s; display: inline-block; }
+  .cat-name .arrow.open { transform: rotate(90deg); }
+  .cat-amount { text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .cat-bar-col { text-align: right; }
+  .bar-container { display: inline-block; width: 60px; height: 6px; background: #334155; border-radius: 3px; overflow: hidden; vertical-align: middle; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+  .line-items { display: none; border-top: 1px solid #334155; }
+  .line-items.open { display: block; }
+  .line-item { display: grid; grid-template-columns: 2fr repeat(3, 1fr) 80px; padding: 10px 20px 10px 44px; font-size: 13px; border-top: 1px solid #1e293b; }
+  .line-item:hover { background: #1e293b99; }
+  .line-item:nth-child(odd) { background: #0f172a44; }
+  .li-name { color: #cbd5e1; }
+  .li-amount { text-align: right; font-variant-numeric: tabular-nums; color: #94a3b8; }
+  .li-amount.has-value { color: #e2e8f0; }
+  .col-header { display: grid; grid-template-columns: 2fr repeat(3, 1fr) 80px; padding: 8px 20px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; border-bottom: 1px solid #334155; margin-bottom: 4px; }
+  .col-header span { text-align: right; }
+  .col-header span:first-child { text-align: left; }
+  .section-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; margin-top: 8px; color: #f8fafc; }
+  .chart-row { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .chart-card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 20px; flex: 1; min-width: 300px; }
+  .chart-card h3 { font-size: 13px; color: #94a3b8; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .horiz-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .horiz-bar .bar-label { font-size: 12px; width: 100px; text-align: right; color: #94a3b8; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .horiz-bar .bar-track { flex: 1; height: 18px; background: #334155; border-radius: 4px; overflow: hidden; position: relative; }
+  .horiz-bar .bar-inner { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 6px; font-size: 10px; color: #fff; font-weight: 600; min-width: fit-content; }
+  .yr-legend { display: flex; gap: 16px; margin-bottom: 16px; }
+  .yr-legend span { font-size: 11px; display: flex; align-items: center; gap: 4px; color: #94a3b8; }
+  .yr-legend .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot-2023 { background: #60a5fa; }
+  .dot-2024 { background: #a78bfa; }
+  .dot-2025 { background: #4ade80; }
+  .pct-change { font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+  .pct-up { background: #166534; color: #4ade80; }
+  .pct-down { background: #7f1d1d; color: #f87171; }
+  .pct-flat { background: #334155; color: #94a3b8; }
+  @media (max-width: 768px) {
+    .summary-row { padding: 16px; }
+    .content { padding: 16px; }
+    .category-header { grid-template-columns: 1.5fr repeat(3, 1fr) 60px; padding: 12px 12px; font-size: 12px; }
+    .line-item { grid-template-columns: 1.5fr repeat(3, 1fr) 60px; padding-left: 24px; }
+    .col-header { grid-template-columns: 1.5fr repeat(3, 1fr) 60px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>BlackSummit Financial Group &mdash; P&L Dashboard</h1>
+  <p>3-Year Comparison: 2023 &ndash; 2025</p>
+</div>
+
+<div class="summary-row" id="summaryRow"></div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="income">Income</div>
+  <div class="tab" data-tab="expenses">Expenses</div>
+  <div class="tab" data-tab="other">Other Income / Expenses</div>
+</div>
+
+<div class="content" id="mainContent"></div>
+
+<script>
+const YEARS = [2023, 2024, 2025];
+const COLORS = { 2023: '#60a5fa', 2024: '#a78bfa', 2025: '#4ade80' };
+
+// ── RAW DATA ──
+const data = {
+  income: {
+    "Fee Income": {
+      items: {
+        "Corporate Consulting":      [1029849.76, 410575.04, 403835.34],
+        "Discretionary Mgmt Fees":   [270907.10, 311245.23, 359354.66],
+        "Non-Discretionary Mgmt Fees": [95725.85, 91917.45, 77696.97],
+      }
+    },
+    "Other Revenue": {
+      items: {
+        "Book Royalties":    [2.30, 7.19, 0],
+        "Interest Income":   [66.94, 34811.57, 5697.64],
+        "Services":          [48981.25, 0, 0],
+      }
+    }
+  },
+  expenses: {
+    "Payroll & Benefits": {
+      items: {
+        "Payroll - Wages":              [43074.00, 42574.00, 52024.50],
+        "Payroll Taxes":                [13165.70, 13167.80, 15616.90],
+        "401K Employee Contribution":   [30000.00, 30500.00, 34750.00],
+        "401K Employer Match":          [22000.00, 20000.00, 23750.00],
+        "ADP Fees":                     [-44.40, 0, 0],
+        "Health Insurance":             [1076.86, 1678.14, 1203.08],
+        "Employee Meals":               [9788.48, 3173.49, 2448.54],
+      }
+    },
+    "Contract Labor": {
+      items: {
+        "Contract Workers":  [225307.55, 471594.52, 197190.68],
+        "Business Services": [82909.58, 0, 0],
+      }
+    },
+    "Travel": {
+      items: {
+        "General Travel":    [39436.22, 73776.19, 35384.68],
+        "Airline":           [33391.60, 19942.89, 20966.58],
+        "Lodging":           [29675.03, 16953.56, 20640.59],
+        "Car Rental":        [2399.43, 3209.12, 662.93],
+        "Taxi / Rideshare":  [1420.54, 778.70, 1713.13],
+      }
+    },
+    "Automotive": {
+      items: {
+        "Automobile Expense": [2137.26, 4285.18, 733.17],
+        "Car Lease":          [7529.52, 7529.52, 0],
+        "Car Rental (Auto)":  [0, 108.01, 0],
+        "Fuel":               [1621.32, 1902.45, 2011.39],
+      }
+    },
+    "Facilities": {
+      items: {
+        "Building Lease":    [14400.00, 18296.71, 18808.57],
+        "Greek Office":      [7618.46, 557.54, 11936.58],
+        "Utilities":         [853.38, 1417.43, 1326.18],
+      }
+    },
+    "Professional Services": {
+      items: {
+        "Professional Fees":   [115510.77, 12934.22, 26482.49],
+        "Compliance / Legal":  [9824.82, 2479.50, 2340.51],
+      }
+    },
+    "Insurance": {
+      items: {
+        "General Insurance":     [2007.14, 2836.41, 2827.01],
+        "E&O Insurance":         [8363.42, 8237.71, 8237.71],
+        "Surety Bond":           [916.20, 0, 916.20],
+      }
+    },
+    "Taxes": {
+      items: {
+        "County Tax (Jessamine)": [5500.00, 9449.00, 0],
+        "State Tax (Kentucky)":   [15350.00, 173391.00, 0],
+        "Other Tax":              [737.86, 776.83, 854.66],
+      }
+    },
+    "Office & Equipment": {
+      items: {
+        "Office Supplies":        [5326.51, 9313.34, 2930.80],
+        "Hardware Supplies":      [1288.93, 0, 0],
+        "Office Equipment":       [1001.64, 2384.89, 4606.64],
+        "Computer & Internet":    [3705.36, 5974.20, 2580.81],
+      }
+    },
+    "Subscriptions & Software": {
+      items: {
+        "Dues & Subscriptions":  [2764.60, 4121.55, 3566.62],
+        "Adobe":                 [206.58, 254.28, 254.28],
+        "QuickBooks":            [726.10, 789.70, 890.40],
+        "Google Subscription":   [38.04, 38.04, 38.04],
+        "Wall Street Journal":   [6.36, 86.92, 152.64],
+        "Economist":             [0, 55.39, 60.69],
+        "Constant Contact":      [492.00, 652.16, 756.84],
+        "Website Hosting":       [0, 0, 187.40],
+      }
+    },
+    "Licensing & Regulatory": {
+      items: {
+        "Business Licenses":      [380.00, 554.05, 0],
+        "Business Filings":       [1029.39, 793.64, 1870.09],
+        "FINRA Registration":     [360.00, 791.00, 470.00],
+      }
+    },
+    "Marketing & Client Relations": {
+      items: {
+        "Client Entertainment":  [1017.73, 463.41, 2130.09],
+        "Client & Prospect Gifts": [7324.55, 9129.70, 2344.20],
+        "Advertising & Promotion": [20.72, 459.26, 614.33],
+        "Entertainment":          [0, 242.12, 455.98],
+      }
+    },
+    "Meals": {
+      items: {
+        "Meals (General)": [2703.85, 0, 0],
+      }
+    },
+    "Communications": {
+      items: {
+        "Telephone":         [2847.53, 4324.97, 3379.16],
+        "Postage & Delivery": [472.98, 784.53, 350.26],
+      }
+    },
+    "Donations": {
+      items: {
+        "Charitable Donations": [28192.02, 60525.13, 47609.27],
+      }
+    },
+    "Education & Research": {
+      items: {
+        "Education Expense":     [0, 392.76, 85.00],
+        "Continuing Education":  [0, 110.00, 0],
+        "Research Books":        [998.75, 1493.39, 1407.77],
+      }
+    },
+    "Other / Miscellaneous": {
+      items: {
+        "Other Expense":     [0.05, 232284.35, 1200.00],
+        "Bank Service Charges": [479.23, 622.34, 533.27],
+        "Miscellaneous":     [17.73, 0, 50.00],
+        "Moving Expenses":   [0, 1302.54, 15.80],
+      }
+    }
+  },
+  other: {
+    "Other Income": {
+      items: {
+        "Other Income (69000)":    [165228.85, 3632417.08, 0],
+        "Dividend Income":         [18889.56, 1096.88, 426.75],
+        "Gain on Sale of Securities": [34821.34, 3599.43, 17050.03],
+        "FACS Investment (K-1)":   [0, -4761.00, 0],
+      }
+    },
+    "Other Expenses": {
+      items: {
+        "Exchange Gain/Loss":      [10.13, 28273.43, 152.66],
+        "Other Misc Expense":      [0.05, 0.05, 0],
+        "SARISA Partnership":      [67375.00, 0, 0],
+      }
+    }
+  }
+};
+
+// ── HELPERS ──
+function fmt(n) {
+  if (n === 0) return '—';
+  const neg = n < 0;
+  const s = '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return neg ? '(' + s + ')' : s;
+}
+
+function catTotal(cat, yi) {
+  return Object.values(cat.items).reduce((s, v) => s + (v[yi] || 0), 0);
+}
+
+function sectionTotal(section, yi) {
+  return Object.values(section).reduce((s, cat) => s + catTotal(cat, yi), 0);
+}
+
+function pctBadge(prev, curr) {
+  if (prev === 0 && curr === 0) return '<span class="pct-change pct-flat">—</span>';
+  if (prev === 0) return '<span class="pct-change pct-up">NEW</span>';
+  const pct = ((curr - prev) / Math.abs(prev)) * 100;
+  const cls = pct > 1 ? 'pct-up' : pct < -1 ? 'pct-down' : 'pct-flat';
+  const sign = pct > 0 ? '+' : '';
+  return `<span class="pct-change ${cls}">${sign}${pct.toFixed(0)}%</span>`;
+}
+
+// ── SUMMARY ──
+function renderSummary() {
+  const ti = YEARS.map((_, i) => sectionTotal(data.income, i));
+  const te = YEARS.map((_, i) => sectionTotal(data.expenses, i));
+  const oi = YEARS.map((_, i) => {
+    const inc = catTotal(data.other["Other Income"], i);
+    const exp = catTotal(data.other["Other Expenses"], i);
+    return inc - exp;
+  });
+  const ni = YEARS.map((_, i) => ti[i] - te[i] + oi[i]);
+
+  const cards = [
+    { label: 'Total Revenue (2025)', value: fmt(ti[2]), cls: 'green', sub: `2024: ${fmt(ti[1])} &middot; 2023: ${fmt(ti[0])}` },
+    { label: 'Total Expenses (2025)', value: fmt(te[2]), cls: 'red', sub: `2024: ${fmt(te[1])} &middot; 2023: ${fmt(te[0])}` },
+    { label: 'Net Operating Income (2025)', value: fmt(ti[2] - te[2]), cls: ti[2]-te[2] >= 0 ? 'green' : 'red', sub: `2024: ${fmt(ti[1]-te[1])} &middot; 2023: ${fmt(ti[0]-te[0])}` },
+    { label: 'Net Income (2025)', value: fmt(ni[2]), cls: ni[2] >= 0 ? 'green' : 'red', sub: `2024: ${fmt(ni[1])} &middot; 2023: ${fmt(ni[0])}` },
+  ];
+  document.getElementById('summaryRow').innerHTML = cards.map(c =>
+    `<div class="summary-card"><div class="label">${c.label}</div><div class="value ${c.cls}">${c.value}</div><div class="subtext">${c.sub}</div></div>`
+  ).join('');
+}
+
+// ── CATEGORY TABLE ──
+function renderSection(section, isExpense) {
+  const maxVal = Math.max(...Object.values(section).flatMap(cat => YEARS.map((_, i) => Math.abs(catTotal(cat, i)))));
+  let html = `<div class="col-header"><span>Category</span><span>2023</span><span>2024</span><span>2025</span><span>Trend</span></div>`;
+  html += '<div class="category-grid">';
+
+  // Sort categories by 2025 value descending
+  const sorted = Object.entries(section).sort((a, b) => Math.abs(catTotal(b[1], 2)) - Math.abs(catTotal(a[1], 2)));
+
+  for (const [name, cat] of sorted) {
+    const totals = YEARS.map((_, i) => catTotal(cat, i));
+    const id = name.replace(/[^a-zA-Z0-9]/g, '_');
+    const barPct = maxVal > 0 ? (Math.abs(totals[2]) / maxVal * 100) : 0;
+    const barColor = isExpense ? '#f87171' : '#4ade80';
+
+    html += `<div class="category-row">`;
+    html += `<div class="category-header" onclick="toggleItems('${id}')">`;
+    html += `<div class="cat-name"><span class="arrow" id="arrow_${id}">&#9654;</span>${name}</div>`;
+    html += totals.map(t => `<div class="cat-amount">${fmt(t)}</div>`).join('');
+    html += `<div class="cat-bar-col">${pctBadge(totals[1], totals[2])}</div>`;
+    html += `</div>`;
+
+    html += `<div class="line-items" id="items_${id}">`;
+    const itemsSorted = Object.entries(cat.items).sort((a, b) => Math.abs(b[1][2]) - Math.abs(a[1][2]));
+    for (const [iname, vals] of itemsSorted) {
+      html += `<div class="line-item">`;
+      html += `<div class="li-name">${iname}</div>`;
+      html += vals.map(v => `<div class="li-amount ${v !== 0 ? 'has-value' : ''}">${fmt(v)}</div>`).join('');
+      html += `<div class="li-amount">${pctBadge(vals[1], vals[2])}</div>`;
+      html += `</div>`;
+    }
+    html += `</div></div>`;
+  }
+  html += '</div>';
+
+  // Section total row
+  const secTotals = YEARS.map((_, i) => sectionTotal(section, i));
+  html += `<div style="display:grid;grid-template-columns:2fr repeat(3,1fr) 80px;padding:14px 20px;font-weight:700;font-size:14px;border-top:2px solid #475569;margin-top:8px;">`;
+  html += `<div>Total</div>`;
+  html += secTotals.map(t => `<div style="text-align:right">${fmt(t)}</div>`).join('');
+  html += `<div style="text-align:right">${pctBadge(secTotals[1], secTotals[2])}</div>`;
+  html += `</div>`;
+
+  return html;
+}
+
+function toggleItems(id) {
+  const el = document.getElementById('items_' + id);
+  const arrow = document.getElementById('arrow_' + id);
+  const isOpen = el.classList.contains('open');
+  el.classList.toggle('open');
+  arrow.classList.toggle('open');
+}
+
+// ── TABS ──
+let activeTab = 'income';
+
+function renderTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  const cont = document.getElementById('mainContent');
+
+  if (tab === 'income') {
+    cont.innerHTML = `<div class="section-title">Revenue by Category</div>` + renderSection(data.income, false);
+  } else if (tab === 'expenses') {
+    cont.innerHTML = `<div class="section-title">Expenses by Category</div>` + renderSection(data.expenses, true);
+  } else {
+    cont.innerHTML = `<div class="section-title">Other Income & Expenses</div>` + renderSection(data.other, false);
+  }
+}
+
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => renderTab(t.dataset.tab)));
+
+// ── INIT ──
+renderSummary();
+renderTab('income');
+</script>
+</body>
+</html>
