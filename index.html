@@ -27,7 +27,7 @@
   .category-grid { display: flex; flex-direction: column; gap: 8px; }
   .category-row { background: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; transition: all 0.15s; }
   .category-row:hover { border-color: #475569; }
-  .category-header { display: grid; grid-template-columns: 2fr repeat(3, 1fr) 80px; align-items: center; padding: 14px 20px; cursor: pointer; user-select: none; }
+  .category-header { display: grid; grid-template-columns: 2fr repeat(3, 1fr) 80px 150px; align-items: center; padding: 14px 20px; cursor: pointer; user-select: none; }
   .category-header:hover { background: #1e3a5f22; }
   .cat-name { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
   .cat-name .arrow { font-size: 10px; color: #64748b; transition: transform 0.2s; display: inline-block; }
@@ -38,13 +38,16 @@
   .bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
   .line-items { display: none; border-top: 1px solid #334155; }
   .line-items.open { display: block; }
-  .line-item { display: grid; grid-template-columns: 2fr repeat(3, 1fr) 80px; padding: 10px 20px 10px 44px; font-size: 13px; border-top: 1px solid #1e293b; }
+  .line-item { display: grid; grid-template-columns: 2fr repeat(3, 1fr) 80px 150px; padding: 10px 20px 10px 44px; font-size: 13px; border-top: 1px solid #1e293b; align-items: start; }
   .line-item:hover { background: #1e293b99; }
   .line-item:nth-child(odd) { background: #0f172a44; }
   .li-name { color: #cbd5e1; }
   .li-amount { text-align: right; font-variant-numeric: tabular-nums; color: #94a3b8; }
   .li-amount.has-value { color: #e2e8f0; }
-  .col-header { display: grid; grid-template-columns: 2fr repeat(3, 1fr) 80px; padding: 8px 20px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; border-bottom: 1px solid #334155; margin-bottom: 4px; }
+  .col-header { display: grid; grid-template-columns: 2fr repeat(3, 1fr) 80px 150px; padding: 8px 20px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; border-bottom: 1px solid #334155; margin-bottom: 4px; }
+  .note-input { width: 100%; height: 32px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0; font-size: 11px; padding: 4px 6px; resize: vertical; max-height: 80px; font-family: inherit; }
+  .note-input:focus { outline: none; border-color: #60a5fa; }
+  .note-input::placeholder { color: #475569; }
   .col-header span { text-align: right; }
   .col-header span:first-child { text-align: left; }
   .section-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; margin-top: 8px; color: #f8fafc; }
@@ -68,9 +71,9 @@
   @media (max-width: 768px) {
     .summary-row { padding: 16px; }
     .content { padding: 16px; }
-    .category-header { grid-template-columns: 1.5fr repeat(3, 1fr) 60px; padding: 12px 12px; font-size: 12px; }
-    .line-item { grid-template-columns: 1.5fr repeat(3, 1fr) 60px; padding-left: 24px; }
-    .col-header { grid-template-columns: 1.5fr repeat(3, 1fr) 60px; }
+    .category-header { grid-template-columns: 1.5fr repeat(3, 1fr) 60px 100px; padding: 12px 12px; font-size: 12px; }
+    .line-item { grid-template-columns: 1.5fr repeat(3, 1fr) 60px 100px; padding-left: 24px; }
+    .col-header { grid-template-columns: 1.5fr repeat(3, 1fr) 60px 100px; }
   }
 </style>
 </head>
@@ -311,7 +314,7 @@ function renderSummary() {
 // ── CATEGORY TABLE ──
 function renderSection(section, isExpense) {
   const maxVal = Math.max(...Object.values(section).flatMap(cat => YEARS.map((_, i) => Math.abs(catTotal(cat, i)))));
-  let html = `<div class="col-header"><span>Category</span><span>2023</span><span>2024</span><span>2025</span><span>Trend</span></div>`;
+  let html = `<div class="col-header"><span>Category</span><span>2023</span><span>2024</span><span>2025</span><span>Trend</span><span>Notes</span></div>`;
   html += '<div class="category-grid">';
 
   // Sort categories by 2025 value descending
@@ -328,15 +331,19 @@ function renderSection(section, isExpense) {
     html += `<div class="cat-name"><span class="arrow" id="arrow_${id}">&#9654;</span>${name}</div>`;
     html += totals.map(t => `<div class="cat-amount">${fmt(t)}</div>`).join('');
     html += `<div class="cat-bar-col">${pctBadge(totals[1], totals[2])}</div>`;
+    html += `<div></div>`;
     html += `</div>`;
 
     html += `<div class="line-items" id="items_${id}">`;
     const itemsSorted = Object.entries(cat.items).sort((a, b) => Math.abs(b[1][2]) - Math.abs(a[1][2]));
     for (const [iname, vals] of itemsSorted) {
+      const noteKey = `note_${name}_${iname}`.replace(/[^a-zA-Z0-9]/g, '_');
+      const savedNote = localStorage.getItem(noteKey) || '';
       html += `<div class="line-item">`;
       html += `<div class="li-name">${iname}</div>`;
       html += vals.map(v => `<div class="li-amount ${v !== 0 ? 'has-value' : ''}">${fmt(v)}</div>`).join('');
       html += `<div class="li-amount">${pctBadge(vals[1], vals[2])}</div>`;
+      html += `<div><textarea class="note-input" maxlength="300" placeholder="Add note..." data-key="${noteKey}" onclick="event.stopPropagation()">${savedNote}</textarea></div>`;
       html += `</div>`;
     }
     html += `</div></div>`;
@@ -345,10 +352,11 @@ function renderSection(section, isExpense) {
 
   // Section total row
   const secTotals = YEARS.map((_, i) => sectionTotal(section, i));
-  html += `<div style="display:grid;grid-template-columns:2fr repeat(3,1fr) 80px;padding:14px 20px;font-weight:700;font-size:14px;border-top:2px solid #475569;margin-top:8px;">`;
+  html += `<div style="display:grid;grid-template-columns:2fr repeat(3,1fr) 80px 150px;padding:14px 20px;font-weight:700;font-size:14px;border-top:2px solid #475569;margin-top:8px;">`;
   html += `<div>Total</div>`;
   html += secTotals.map(t => `<div style="text-align:right">${fmt(t)}</div>`).join('');
   html += `<div style="text-align:right">${pctBadge(secTotals[1], secTotals[2])}</div>`;
+  html += `<div></div>`;
   html += `</div>`;
 
   return html;
@@ -380,6 +388,13 @@ function renderTab(tab) {
 }
 
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => renderTab(t.dataset.tab)));
+
+// ── NOTES PERSISTENCE ──
+document.addEventListener('input', function(e) {
+  if (e.target.classList.contains('note-input')) {
+    localStorage.setItem(e.target.dataset.key, e.target.value);
+  }
+});
 
 // ── INIT ──
 renderSummary();
